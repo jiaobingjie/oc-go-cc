@@ -103,7 +103,7 @@ func hasComplexPattern(messages []MessageContent) bool {
 	}
 
 	for _, msg := range messages {
-		if msg.Role == "system" {
+		if msg.Role == "system" || msg.Role == "user" {
 			lower := strings.ToLower(msg.Content)
 			for _, kw := range complexKeywords {
 				if strings.Contains(lower, kw) {
@@ -124,7 +124,7 @@ func hasThinkingPattern(messages []MessageContent) bool {
 	}
 
 	for _, msg := range messages {
-		if msg.Role == "system" {
+		if msg.Role == "system" || msg.Role == "user" {
 			lower := strings.ToLower(msg.Content)
 			for _, kw := range thinkingKeywords {
 				if strings.Contains(lower, kw) {
