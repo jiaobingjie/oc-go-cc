@@ -270,15 +270,16 @@ func maskString(s string, visible int) string {
 }
 
 // getDefaultConfig returns a default configuration JSON template.
+// Optimized for cost-efficiency: uses cheaper models by default, expensive ones only when needed.
 func getDefaultConfig() string {
 	return `{
   "api_key": "${OC_GO_CC_API_KEY}",
   "host": "127.0.0.1",
   "port": 3456,
   "models": {
-    "default": {
+    "budget": {
       "provider": "opencode-go",
-      "model_id": "kimi-k2.5",
+      "model_id": "qwen3.6-plus",
       "temperature": 0.7,
       "max_tokens": 4096
     },
@@ -288,30 +289,56 @@ func getDefaultConfig() string {
       "temperature": 0.5,
       "max_tokens": 2048
     },
-    "think": {
+    "default": {
       "provider": "opencode-go",
-      "model_id": "glm-5.1",
+      "model_id": "kimi-k2.5",
       "temperature": 0.7,
-      "max_tokens": 8192
+      "max_tokens": 4096
     },
     "long_context": {
       "provider": "opencode-go",
-      "model_id": "minimax-m2.7",
+      "model_id": "minimax-m2.5",
       "temperature": 0.7,
       "max_tokens": 16384,
-      "context_threshold": 60000
+      "context_threshold": 80000
+    },
+    "think": {
+      "provider": "opencode-go",
+      "model_id": "glm-5",
+      "temperature": 0.7,
+      "max_tokens": 8192
+    },
+    "complex": {
+      "provider": "opencode-go",
+      "model_id": "glm-5.1",
+      "temperature": 0.7,
+      "max_tokens": 4096
     }
   },
   "fallbacks": {
+    "budget": [
+      { "provider": "opencode-go", "model_id": "kimi-k2.5" },
+      { "provider": "opencode-go", "model_id": "mimo-v2-pro" }
+    ],
+    "background": [
+      { "provider": "opencode-go", "model_id": "qwen3.6-plus" },
+      { "provider": "opencode-go", "model_id": "minimax-m2.5" }
+    ],
     "default": [
-      { "provider": "opencode-go", "model_id": "glm-5" },
+      { "provider": "opencode-go", "model_id": "mimo-v2-pro" },
       { "provider": "opencode-go", "model_id": "qwen3.6-plus" }
     ],
-    "think": [
-      { "provider": "opencode-go", "model_id": "glm-5" }
-    ],
     "long_context": [
-      { "provider": "opencode-go", "model_id": "minimax-m2.5" }
+      { "provider": "opencode-go", "model_id": "minimax-m2.7" },
+      { "provider": "opencode-go", "model_id": "kimi-k2.5" }
+    ],
+    "think": [
+      { "provider": "opencode-go", "model_id": "kimi-k2.5" },
+      { "provider": "opencode-go", "model_id": "mimo-v2-pro" }
+    ],
+    "complex": [
+      { "provider": "opencode-go", "model_id": "glm-5" },
+      { "provider": "opencode-go", "model_id": "kimi-k2.5" }
     ]
   },
   "opencode_go": {

@@ -49,6 +49,13 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// Flush implements http.Flusher for SSE streaming support.
+func (w *responseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // NewMessagesHandler creates a new messages handler.
 func NewMessagesHandler(
 	cfg *config.Config,
@@ -203,7 +210,29 @@ func (h *MessagesHandler) handleStreaming(
 	if !rw.wroteHeader {
 		h.sendError(w, http.StatusBadGateway, "all streaming models failed", nil)
 	} else {
-		h.logger.Error("all streaming models failed after headers sent")
+		// Headers already sent - send error as SSE event
+		h.sendStreamError(rw, "all upstream models failed")
+	}
+}
+
+// sendStreamError sends an error event in the SSE stream.
+// Use this when headers have already been written.
+func (h *MessagesHandler) sendStreamError(w http.ResponseWriter, message string) {
+	h.logger.Error("sending stream error", "message", message)
+
+	errorEvent := map[string]interface{}{
+		"type": "error",
+		"error": map[string]interface{}{
+			"type":    "api_error",
+			"message": message,
+		},
+	}
+
+	data, _ := json.Marshal(errorEvent)
+	fmt.Fprintf(w, "event: error\ndata: %s\n\n", string(data))
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
 	}
 }
 

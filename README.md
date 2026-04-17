@@ -230,7 +230,19 @@ Environment variables override config file values. Config values also support `$
 
 ### Model Routing
 
-The proxy detects the type of request and routes to the appropriate model:
+The proxy automatically detects the type of request and routes to the appropriate model based on context size and content analysis:
+
+| Scenario | Trigger | Model | Why |
+|----------|---------|-------|-----|
+| **Long Context** | >60K tokens | MiniMax M2.7 | 1M context window vs 128-256K for others |
+| **Complex** | "architect", "refactor", "complex" in system prompt | GLM-5.1 | Best reasoning & architectural understanding |
+| **Think** | "think", "plan", "reason" in system prompt | GLM-5 | Good reasoning, cheaper than GLM-5.1 |
+| **Background** | "read file", "grep", "list directory" | Qwen3.5 Plus | Cheapest (~10K req/5hr), perfect for simple ops |
+| **Default** | Everything else | Kimi K2.5 | Best balance of quality & cost (~1.8K req/5hr) |
+
+**📖 See [MODELS.md](MODELS.md) for detailed model capabilities, costs, and routing recommendations.**
+
+#### Routing in Detail:
 
 | Scenario | Trigger | Config Key | Default Model |
 |----------|---------|------------|---------------|
@@ -253,21 +265,25 @@ Each model also has a **circuit breaker** that tracks consecutive failures. Afte
 
 ### Available Models
 
-These are the models available through [OpenCode Go](https://opencode.ai/docs/go/):
+See [MODELS.md](MODELS.md) for **detailed model capabilities, costs, and routing recommendations**.
 
-| Model ID | Type | Best For |
-|----------|------|----------|
-| `glm-5.1` | OpenAI-compatible | Complex reasoning, thinking tasks |
-| `glm-5` | OpenAI-compatible | General coding, fallback |
-| `kimi-k2.5` | OpenAI-compatible | General coding (default) |
-| `mimo-v2-pro` | OpenAI-compatible | Balanced performance |
-| `mimo-v2-omni` | OpenAI-compatible | High throughput |
-| `minimax-m2.7` | Anthropic-compatible | Long context |
-| `minimax-m2.5` | Anthropic-compatible | Long context, cost-effective |
-| `qwen3.6-plus` | OpenAI-compatible | Fast responses, fallback |
-| `qwen3.5-plus` | OpenAI-compatible | Background tasks, cheapest |
+Quick reference:
 
-> **Note:** Models marked "Anthropic-compatible" use the `/v1/messages` endpoint. Currently all models are routed through the OpenAI-compatible endpoint. If you need native Anthropic format for MiniMax models, change `opencode_go.base_url` to `https://opencode.ai/zen/go/v1/messages`.
+| Model ID | Quality | Context | Cost (req/5hr) | Best For |
+|----------|---------|---------|----------------|----------|
+| `glm-5.1` | ★★★★★ | 200K | ~880 | Complex architecture, difficult tasks |
+| `glm-5` | ★★★★☆ | 200K | ~1,150 | High-quality coding, refactoring |
+| `kimi-k2.5` | ★★★★☆ | 256K | ~1,850 | **Default** - best balance |
+| `mimo-v2-pro` | ★★★★☆ | 128K | ~1,290 | Code completion, generation |
+| `mimo-v2-omni` | ★★★☆☆ | 256K | ~2,150 | Fast prototyping |
+| `qwen3.6-plus` | ★★★☆☆ | 128K | ~3,300 | Cost-effective general coding |
+| `minimax-m2.7` | ★★★☆☆ | **1M** | ~3,400 | **Long context specialist** |
+| `minimax-m2.5` | ★★☆☆☆ | **1M** | ~6,300 | Long context on a budget |
+| `qwen3.5-plus` | ★★☆☆☆ | 128K | ~10,200 | **Cheapest** - background tasks |
+
+> **💡 Tip:** The cost column shows approximate requests per 5-hour block ($12). Qwen3.5 Plus gives you ~10x more requests than GLM-5.1!
+
+> **Note:** MiniMax models officially use the Anthropic-compatible `/v1/messages` endpoint, but oc-go-cc handles this automatically. All requests go through the OpenAI-compatible endpoint for consistency.
 
 ## CLI Commands
 
