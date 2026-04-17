@@ -103,13 +103,14 @@ func (m *Message) ContentBlocks() []ContentBlock {
 // The Type field determines which other fields are populated:
 //   - "text": Text is populated
 //   - "tool_use": ID, Name, Input are populated
-//   - "tool_result": ID, Content (inner), IsError are populated
+//   - "tool_result": ToolUseID, Content, IsError are populated
 //   - "thinking": Thinking, Signature are populated
 //   - "image": Source is populated
 type ContentBlock struct {
 	Type      string          `json:"type"`
 	Text      string          `json:"text,omitempty"`
-	ID        string          `json:"id,omitempty"`
+	ID        string          `json:"id,omitempty"`          // For tool_use (the tool call ID)
+	ToolUseID string          `json:"tool_use_id,omitempty"` // For tool_result (references the tool_use ID)
 	Name      string          `json:"name,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	Output    json.RawMessage `json:"output,omitempty"`    // Deprecated: use Content
@@ -118,6 +119,15 @@ type ContentBlock struct {
 	Thinking  string          `json:"thinking,omitempty"`  // For thinking blocks
 	Signature string          `json:"signature,omitempty"` // For thinking blocks
 	Source    *ImageSource    `json:"source,omitempty"`    // For image blocks
+}
+
+// GetToolID returns the appropriate tool ID for this block type.
+// For tool_use: returns ID. For tool_result: returns ToolUseID.
+func (b *ContentBlock) GetToolID() string {
+	if b.Type == "tool_result" {
+		return b.ToolUseID
+	}
+	return b.ID
 }
 
 // TextContent extracts text from a tool_result's content field.

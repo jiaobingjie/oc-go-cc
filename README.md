@@ -348,6 +348,7 @@ OC_GO_CC_LOG_LEVEL=debug oc-go-cc serve
 ```
 
 This logs:
+
 - Raw Anthropic request body from Claude Code
 - Transformed OpenAI request sent to OpenCode Go
 - Raw OpenAI response received
@@ -416,23 +417,6 @@ make install
 # Build cross-platform release binaries
 make dist
 ```
-
-### Release Process
-
-Releases are automated via GitHub Actions:
-
-1. Push to `main` or merge a PR → workflow runs tests + builds
-2. If tests pass, a new release is created with cross-platform binaries and checksums
-3. The Homebrew tap (`samueltuyizere/homebrew-tap`) is automatically updated with the new version
-
-To create a specific version, tag the commit:
-
-```bash
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-The workflow will use the tag as the release version.
 
 ## License
 

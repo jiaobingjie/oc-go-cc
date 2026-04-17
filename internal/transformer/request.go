@@ -129,7 +129,7 @@ func (t *RequestTransformer) transformUserMessage(blocks []types.ContentBlock) (
 			result = append(result, types.ChatMessage{
 				Role:       "tool",
 				Content:    toolContent,
-				ToolCallID: block.ID,
+				ToolCallID: block.GetToolID(),
 			})
 		case "image":
 			// Images not supported in text-only models, skip

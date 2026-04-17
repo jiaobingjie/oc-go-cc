@@ -29,6 +29,26 @@ type MessagesHandler struct {
 	logger              *slog.Logger
 }
 
+// responseWriter wraps http.ResponseWriter to track if headers were written.
+type responseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w *responseWriter) WriteHeader(code int) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+		w.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (w *responseWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(b)
+}
+
 // NewMessagesHandler creates a new messages handler.
 func NewMessagesHandler(
 	cfg *config.Config,
@@ -149,6 +169,7 @@ func (h *MessagesHandler) handleStreaming(
 	modelChain []config.ModelConfig,
 ) {
 	ctx := r.Context()
+	rw := &responseWriter{ResponseWriter: w}
 
 	for _, model := range modelChain {
 		h.logger.Info("attempting streaming model", "model", model.ModelID)
@@ -169,7 +190,7 @@ func (h *MessagesHandler) handleStreaming(
 		defer streamBody.Close()
 
 		// Proxy the stream: transform OpenAI SSE → Anthropic SSE in real-time
-		if err := h.streamHandler.ProxyStream(w, streamBody, model.ModelID); err != nil {
+		if err := h.streamHandler.ProxyStream(rw, streamBody, model.ModelID); err != nil {
 			h.logger.Warn("stream proxy failed", "model", model.ModelID, "error", err)
 			continue
 		}
@@ -179,7 +200,11 @@ func (h *MessagesHandler) handleStreaming(
 	}
 
 	// All models failed
-	h.sendError(w, http.StatusBadGateway, "all streaming models failed", nil)
+	if !rw.wroteHeader {
+		h.sendError(w, http.StatusBadGateway, "all streaming models failed", nil)
+	} else {
+		h.logger.Error("all streaming models failed after headers sent")
+	}
 }
 
 // handleNonStreaming handles a non-streaming request with fallback.
@@ -270,12 +295,18 @@ func extractTextFromBlocks(blocks []types.ContentBlock) string {
 }
 
 // sendError sends an error response in Anthropic format.
+// Safe to call multiple times - subsequent calls are no-ops.
 func (h *MessagesHandler) sendError(w http.ResponseWriter, statusCode int, message string, err error) {
 	h.logger.Error("request error",
 		"status", statusCode,
 		"message", message,
 		"error", err,
 	)
+
+	// Use the wrapped writer if available to prevent duplicate WriteHeader calls
+	if rw, ok := w.(*responseWriter); ok && rw.wroteHeader {
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
