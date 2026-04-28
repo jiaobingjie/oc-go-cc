@@ -93,10 +93,21 @@ func (t *RequestTransformer) TransformRequest(
 			openaiReq.Thinking = json.RawMessage(`{"type":"enabled"}`)
 		}
 	} else if len(model.Thinking) > 0 || model.ReasoningEffort != "" {
-		// Model config wants thinking mode but history has no thinking blocks.
-		// Explicitly disable to prevent DeepSeek from requiring reasoning_content
-		// on assistant messages that can't provide it.
-		openaiReq.Thinking = json.RawMessage(`{"type":"disabled"}`)
+		// Model config wants thinking mode, but history has no thinking blocks.
+		// If this is a fresh conversation (no assistant messages yet), allow
+		// thinking mode — DeepSeek won't require reasoning_content on messages
+		// that don't exist. Otherwise disable to prevent DeepSeek from requiring
+		// reasoning_content on existing assistant messages that can't provide it.
+		if hasAssistantMessages(anthropicReq.Messages) {
+			openaiReq.Thinking = json.RawMessage(`{"type":"disabled"}`)
+		} else {
+			if len(model.Thinking) > 0 {
+				openaiReq.Thinking = model.Thinking
+			}
+			if model.ReasoningEffort != "" {
+				openaiReq.ReasoningEffort = &model.ReasoningEffort
+			}
+		}
 	}
 
 	// Transform tools if present
@@ -105,6 +116,17 @@ func (t *RequestTransformer) TransformRequest(
 	}
 
 	return openaiReq, nil
+}
+
+// hasAssistantMessages returns true if the conversation contains any
+// assistant messages — i.e. this is NOT the first turn.
+func hasAssistantMessages(messages []types.Message) bool {
+	for _, msg := range messages {
+		if msg.Role == "assistant" {
+			return true
+		}
+	}
+	return false
 }
 
 // HasThinkingBlocks returns true if any assistant message contains a
